@@ -30,6 +30,7 @@ export default async function BlogPost({
       </article>
     );
   } catch (error) {
+    console.error("Error fetching blog post:", error);
     notFound();
   }
 }

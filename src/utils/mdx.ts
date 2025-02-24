@@ -5,62 +5,74 @@ import { serialize } from "next-mdx-remote/serialize";
 import rehypePrettyCode from "rehype-pretty-code";
 import rehypeSlug from "rehype-slug";
 import remarkGfm from "remark-gfm";
+import type { BlogPost, BlogMeta } from "~/types/blog";
+import type { MDXRemoteSerializeResult } from "next-mdx-remote";
 
 const rootDirectory = path.join(process.cwd(), "src/content/blogs");
 
-const prettyCodeOptions = {
+interface LineElement {
+  type: string;
+  children: Array<{
+    type: string;
+    value: string;
+  }>;
+  properties: {
+    className?: string[];
+  };
+}
+
+interface PrettyCodeOptions {
+  theme: string;
+  onVisitLine: (node: LineElement) => void;
+  onVisitHighlightedLine: (node: LineElement) => void;
+  onVisitHighlightedWord: (node: LineElement) => void;
+}
+
+const prettyCodeOptions: PrettyCodeOptions = {
   theme: "github-dark",
-  onVisitLine(node: any) {
-    // Prevent lines from collapsing in `display: grid` mode, and
-    // allow empty lines to be copy/pasted
+  onVisitLine(node) {
     if (node.children.length === 0) {
       node.children = [{ type: "text", value: " " }];
     }
   },
-  onVisitHighlightedLine(node: any) {
-    node.properties.className.push("highlighted");
+  onVisitHighlightedLine(node) {
+    node.properties.className?.push("highlighted");
   },
-  onVisitHighlightedWord(node: any) {
+  onVisitHighlightedWord(node) {
     node.properties.className = ["word"];
   },
 };
 
-export interface BlogPost {
-  meta: {
-    title: string;
-    date: string;
-    description: string;
-    slug: string;
-  };
-  content: any; // MDX serialized content
-}
-
-export async function getBlogBySlug(slug: string) {
+export async function getBlogBySlug(slug: string): Promise<{
+  meta: BlogMeta;
+  content: MDXRemoteSerializeResult;
+}> {
   const realSlug = slug.replace(/\.mdx$/, "");
   const filePath = path.join(rootDirectory, `${realSlug}.mdx`);
   const fileContent = fs.readFileSync(filePath, { encoding: "utf8" });
 
   const { data, content } = matter(fileContent);
+  const blogData = data as BlogMeta;
   const serializedContent = await serialize(content, {
     mdxOptions: {
       remarkPlugins: [remarkGfm],
-      rehypePlugins: [rehypeSlug, [rehypePrettyCode, prettyCodeOptions]],
+      rehypePlugins: [[rehypePrettyCode, prettyCodeOptions], rehypeSlug],
     },
     parseFrontmatter: true,
   });
 
   return {
     meta: {
-      ...data,
+      ...blogData,
       slug: realSlug,
     },
     content: serializedContent,
   };
 }
 
-export async function getAllBlogPosts() {
+export async function getAllBlogPosts(): Promise<BlogMeta[]> {
   const files = fs.readdirSync(rootDirectory);
-  const posts = [];
+  const posts: BlogMeta[] = [];
 
   for (const file of files) {
     const { meta } = await getBlogBySlug(file);

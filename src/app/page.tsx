@@ -1,4 +1,4 @@
-import Image from "next/image";
+// import Image from "next/image";
 import Link from "next/link";
 import { getAllBlogPosts } from "~/utils/mdx";
 import { formatDate } from "~/utils/formatDate";
